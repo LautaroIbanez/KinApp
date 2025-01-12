@@ -23,6 +23,8 @@ class PoseApp:
         self.selected_metrics = {
             "right_knee_angle": tk.BooleanVar(value=True),
             "left_knee_angle": tk.BooleanVar(value=True),
+            "right_shoulder_angle": tk.BooleanVar(value=True),
+            "left_shoulder_angle": tk.BooleanVar(value=True),
         }
         self.mode = tk.StringVar(value="relative")  # "relative" o "fixed"
         self.plane = tk.StringVar(value="horizontal")  # "horizontal" o "vertical"
