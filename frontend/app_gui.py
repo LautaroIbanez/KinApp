@@ -293,19 +293,20 @@ class PoseApp:
 
         if results.pose_landmarks:
             metrics = self.processor.calculate_metrics(
-                results.pose_landmarks.landmark,
-                mode=self.mode.get(),
-                plane=self.plane.get()
-            )
+            results.pose_landmarks.landmark,
+            mode=self.mode.get(),
+            plane=self.plane.get()
+        )
+        self.processor.draw_landmarks(
+            padded_frame, results,
+            selected_metrics={key: var.get() for key, var in self.selected_metrics.items()},
+            mode=self.mode.get(),
+            plane=self.plane.get(),
+            metrics=metrics
+        )
 
-            self.processor.draw_landmarks(
-                padded_frame, results,
-                selected_metrics={key: var.get() for key, var in self.selected_metrics.items()},
-                mode=self.mode.get(),
-                plane=self.plane.get()
-            )
 
-            self.update_dashboard(metrics)
+        self.update_dashboard(metrics)
 
         # Mostrar el frame procesado
         padded_frame = cv2.cvtColor(padded_frame, cv2.COLOR_BGR2RGB)
