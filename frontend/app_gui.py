@@ -6,7 +6,7 @@ from tkinter import filedialog, messagebox
 import cv2
 from backend.video_processor import VideoProcessor
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 import numpy as np
 
 class PoseApp:
@@ -31,6 +31,9 @@ class PoseApp:
         }
         self.mode = tk.StringVar(value="relative")  # "relative" o "fixed"
         self.plane = tk.StringVar(value="horizontal")  # "horizontal" o "vertical"
+
+        # Velocidad de reproducción
+        self.play_speed = tk.DoubleVar(value=1.0)
 
         # Variables para gráficos
         self.graph_data = {
@@ -63,23 +66,40 @@ class PoseApp:
         self.restart_button = ttk.Button(control_frame, text="Restart", command=self.restart_video, bootstyle=INFO)
         self.restart_button.pack(side=LEFT, padx=5)
 
+        # Slider de velocidad de reproducción
+        speed_frame = ttk.Frame(self.root, padding=10)
+        speed_frame.pack(fill=X, pady=5)
+
+        speed_label = ttk.Label(speed_frame, text="Playback Speed", font=("Arial", 12))
+        speed_label.pack(side=LEFT, padx=5)
+
+        self.speed_slider = ttk.Scale(speed_frame, from_=0.5, to=2.0, variable=self.play_speed, orient=HORIZONTAL, length=200, bootstyle=SUCCESS)
+        self.speed_slider.pack(side=LEFT, padx=10)
+
         # Canvas para el video (tamaño fijo)
+        video_frame = ttk.Frame(self.root, padding=10)
+        video_frame.pack(side=tk.LEFT, padx=10, pady=10, fill=tk.BOTH, expand=True)
+
         self.canvas_width = 640
         self.canvas_height = 480
-        self.canvas = tk.Canvas(self.root, bg="black", highlightthickness=2, highlightbackground="#d3d3d3",
+        self.canvas = tk.Canvas(video_frame, bg="black", highlightthickness=2, highlightbackground="#d3d3d3",
                                  width=self.canvas_width, height=self.canvas_height)
-        self.canvas.pack(pady=10, side=tk.LEFT)
+        self.canvas.pack(fill=tk.BOTH, expand=True)
+
+        self.canvas.bind("<Button-1>", self.canvas_click)
+        self.canvas.bind("<B1-Motion>", self.canvas_drag)
+        self.canvas.bind("<MouseWheel>", self.canvas_zoom)
 
         # Panel de métricas
         self.metrics_frame = ttk.Frame(self.root, padding=10)
-        self.metrics_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10)
+        self.metrics_frame.pack(side=tk.RIGHT, fill=tk.Y, padx=10, pady=10)
 
         self.metrics_label = ttk.Label(self.metrics_frame, text="Metrics Dashboard", font=("Arial", 14, "bold"))
         self.metrics_label.pack(pady=10)
 
         # Checkboxes para habilitar/deshabilitar métricas
         checkbox_frame = ttk.Frame(self.metrics_frame)
-        checkbox_frame.pack(pady=5)
+        checkbox_frame.pack(pady=5, fill=tk.X)
 
         for metric, var in self.selected_metrics.items():
             checkbox = ttk.Checkbutton(checkbox_frame, text=metric.replace("_", " ").title(), variable=var, bootstyle=SUCCESS)
@@ -87,7 +107,7 @@ class PoseApp:
 
         # Selector de modo de ángulo
         mode_frame = ttk.Frame(self.metrics_frame, padding=10)
-        mode_frame.pack(pady=5)
+        mode_frame.pack(pady=5, fill=tk.X)
         mode_label = ttk.Label(mode_frame, text="Angle Mode", font=("Arial", 12))
         mode_label.pack(anchor=W)
 
@@ -103,7 +123,7 @@ class PoseApp:
 
         # Selector de plano
         plane_frame = ttk.Frame(self.metrics_frame, padding=10)
-        plane_frame.pack(pady=5)
+        plane_frame.pack(pady=5, fill=tk.X)
         plane_label = ttk.Label(plane_frame, text="Reference Plane", font=("Arial", 12))
         plane_label.pack(anchor=W)
 
@@ -120,6 +140,10 @@ class PoseApp:
         # Crear gráficos
         self.create_graph()
 
+        # Botón de salida
+        exit_button = ttk.Button(self.root, text="Exit", command=self.root.quit, bootstyle=DANGER)
+        exit_button.place(relx=0.95, rely=0.95, anchor=SE)
+
     def create_graph(self):
         """
         Crear un único gráfico para métricas seleccionadas.
@@ -131,6 +155,11 @@ class PoseApp:
         self.graph_canvas = FigureCanvasTkAgg(self.fig, master=graph_frame)
         self.graph_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # Agregar barra de herramientas para el gráfico
+        toolbar = NavigationToolbar2Tk(self.graph_canvas, graph_frame)
+        toolbar.update()
+        toolbar.pack(side=tk.BOTTOM, fill=tk.X)
+
     def update_graph(self, metrics):
         """
         Actualizar el gráfico en tiempo real con los datos calculados.
@@ -140,8 +169,8 @@ class PoseApp:
             if metric in self.graph_data and self.selected_metrics[metric].get():
                 self.graph_data[metric].append(value)
                 self.ax.plot(self.graph_data[metric], label=metric.replace("_", " ").title())
-        self.ax.set_xlim(0, max(100, max((len(data) for data in self.graph_data.values()), default=0)))
 
+        self.ax.set_xlim(0, max(100, max((len(data) for data in self.graph_data.values()), default=0)))
         self.ax.set_ylim(0, 180)
         self.ax.set_title("Angle Metrics Over Time")
         self.ax.set_xlabel("Frame")
@@ -149,14 +178,59 @@ class PoseApp:
         self.ax.legend()
         self.graph_canvas.draw()
 
+    def canvas_click(self, event):
+        """
+        Maneja el clic del ratón sobre el canvas.
+        """
+        x, y = event.x, event.y
+        canvas_coords = self.canvas_coords_to_video_coords(x, y)
+        print(f"Canvas clicked at ({x}, {y}), Video coords: {canvas_coords}")
+
+    def canvas_drag(self, event):
+        """
+        Maneja el arrastre del ratón sobre el canvas.
+        """
+        self.offset_x += event.x - self.canvas_width // 2
+        self.offset_y += event.y - self.canvas_height // 2
+        print(f"Dragging offset: ({self.offset_x}, {self.offset_y})")
+        self.redraw_canvas()
+
+    def canvas_zoom(self, event):
+        """
+        Maneja el zoom en el canvas con la rueda del ratón.
+        """
+        zoom_factor = 0.1
+        if event.delta > 0:
+            self.zoom_level += zoom_factor
+        elif event.delta < 0 and self.zoom_level > zoom_factor:
+            self.zoom_level -= zoom_factor
+        print(f"Zoom level: {self.zoom_level}")
+        self.redraw_canvas()
+
+    def redraw_canvas(self):
+        """
+        Redibuja el contenido del canvas ajustado al zoom y desplazamiento.
+        """
+        # Aquí se debería ajustar la imagen en el canvas basado en zoom y desplazamiento
+        pass
+
+    def canvas_coords_to_video_coords(self, x, y):
+        """
+        Convierte coordenadas del canvas a las coordenadas del video considerando zoom y desplazamiento.
+        """
+        video_x = (x - self.offset_x) / self.zoom_level
+        video_y = (y - self.offset_y) / self.zoom_level
+        return int(video_x), int(video_y)
+
     def update_dashboard(self, metrics):
         """
         Actualiza el panel de métricas en tiempo real.
         :param metrics: Diccionario de métricas actuales.
         """
+        print(f"Debug: Current metrics being processed: {metrics}")
         for key, value in metrics.items():
             if key in self.selected_metrics and self.selected_metrics[key].get():
-                print(f"{key}: {value:.2f}°")
+                print(f"{key}: {value:.2f}° (Updating both video and graph)")
         self.update_graph(metrics)
 
     def load_video(self):
@@ -240,7 +314,7 @@ class PoseApp:
         self.canvas.image = img
 
         if not self.is_paused:
-            self.root.after(10, self.play_video)
+            self.root.after(int(1000 / (30 * self.play_speed.get())), self.play_video)
 
     def pause_video(self):
         """
