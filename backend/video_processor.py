@@ -64,6 +64,16 @@ class VideoProcessor:
                 landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE],
                 plane
             )
+            metrics["right_shoulder_angle"] = self.calculate_angle_with_fixed_plane(
+                landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER],
+                landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW],
+                plane
+            )
+            metrics["left_shoulder_angle"] = self.calculate_angle_with_fixed_plane(
+                landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER],
+                landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW],
+                plane
+            )
         elif mode == "fixed":
             # Ángulos en relación con un plano fijo
             metrics["right_knee_angle"] = self.calculate_angle_with_fixed_plane(
@@ -74,6 +84,16 @@ class VideoProcessor:
             metrics["left_knee_angle"] = self.calculate_angle_with_fixed_plane(
                 landmarks[self.mp_pose.PoseLandmark.LEFT_HIP],
                 landmarks[self.mp_pose.PoseLandmark.LEFT_KNEE],
+                plane
+            )
+            metrics["right_shoulder_angle"] = self.calculate_angle_with_fixed_plane(
+                landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER],
+                landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW],
+                plane
+            )
+            metrics["left_shoulder_angle"] = self.calculate_angle_with_fixed_plane(
+                landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER],
+                landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW],
                 plane
             )
 
@@ -121,6 +141,30 @@ class VideoProcessor:
                 landmarks[self.mp_pose.PoseLandmark.LEFT_ANKLE],
                 (255, 0, 0),  # Color
                 "Left Knee Angle",  # Etiqueta
+                mode,
+                plane
+            )
+
+        if selected_metrics.get("right_shoulder_angle", False):
+            self.draw_angle_with_axis(
+                frame,
+                landmarks[self.mp_pose.PoseLandmark.RIGHT_SHOULDER],
+                landmarks[self.mp_pose.PoseLandmark.RIGHT_ELBOW],
+                landmarks[self.mp_pose.PoseLandmark.RIGHT_WRIST],
+                (0, 128, 255),  # Color
+                "Right Shoulder Angle",  # Etiqueta
+                mode,
+                plane
+            )
+
+        if selected_metrics.get("left_shoulder_angle", False):
+            self.draw_angle_with_axis(
+                frame,
+                landmarks[self.mp_pose.PoseLandmark.LEFT_SHOULDER],
+                landmarks[self.mp_pose.PoseLandmark.LEFT_ELBOW],
+                landmarks[self.mp_pose.PoseLandmark.LEFT_WRIST],
+                (128, 0, 255),  # Color
+                "Left Shoulder Angle",  # Etiqueta
                 mode,
                 plane
             )
